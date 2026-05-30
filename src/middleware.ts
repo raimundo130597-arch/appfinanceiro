@@ -1,18 +1,26 @@
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function middleware(request: NextRequest) {
+  // Env vars ausentes → deixa passar (segurança tratada em cada página)
+  if (
+    !process.env.NEXT_PUBLIC_SUPABASE_URL ||
+    !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  ) {
+    return NextResponse.next({ request });
+  }
+
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     {
       cookies: {
         getAll() {
           return request.cookies.getAll();
         },
-        setAll(cookiesToSet: { name: string; value: string; options: CookieOptions }[]) {
+        setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value)
           );
@@ -25,12 +33,19 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // getUser valida o JWT com o servidor Supabase — nunca use getSession() aqui
+  // pois getSession() não valida o token e pode ser falsificado pelo cliente.
+  let user = null;
+  try {
+    const { data } = await supabase.auth.getUser();
+    user = data.user;
+  } catch {
+    // Falha de rede ou token inválido → trata como não autenticado
+  }
 
-  const isAuthPage = request.nextUrl.pathname.startsWith("/auth");
-  const isDashboard = request.nextUrl.pathname.startsWith("/dashboard");
+  const { pathname } = request.nextUrl;
+  const isAuthPage = pathname.startsWith("/auth");
+  const isDashboard = pathname.startsWith("/dashboard");
 
   if (!user && isDashboard) {
     return NextResponse.redirect(new URL("/auth/login", request.url));
