@@ -1,3 +1,7 @@
+/**
+ * Verifica conectividade com Supabase e orienta a criação do schema.
+ * Uso: node scripts/setup-db.mjs (lê variáveis do processo ou do .env.local manualmente)
+ */
 import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
@@ -8,13 +12,17 @@ const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 if (!SUPABASE_URL || !SUPABASE_KEY) {
-  console.error("❌ Variáveis NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY não definidas.");
+  console.error(
+    "❌ Variáveis NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY não definidas."
+  );
   process.exit(1);
 }
 
+// Extrai o project ref da URL para montar o link do dashboard dinamicamente
+const projectRef = new URL(SUPABASE_URL).hostname.split(".")[0];
+
 console.log(`🔗 Conectando em: ${SUPABASE_URL}`);
 
-// 1. Testa conectividade
 async function testConnection() {
   try {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/`, {
@@ -23,19 +31,14 @@ async function testConnection() {
         Authorization: `Bearer ${SUPABASE_KEY}`,
       },
     });
-    if (res.ok || res.status === 200) {
-      console.log("✅ Conexão com Supabase OK");
-      return true;
-    }
-    console.log(`⚠️  Status: ${res.status}`);
-    return false;
+    console.log(res.ok ? "✅ Conexão com Supabase OK" : `⚠️  Status: ${res.status}`);
+    return res.ok;
   } catch (e) {
     console.error("❌ Falha na conexão:", e.message);
     return false;
   }
 }
 
-// 2. Verifica se tabela transactions existe
 async function tableExists() {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/transactions?limit=1`, {
     headers: {
@@ -47,19 +50,14 @@ async function tableExists() {
     console.log("✅ Tabela 'transactions' já existe");
     return true;
   }
-  const body = await res.json().catch(() => ({}));
-  if (body?.message?.includes("does not exist") || res.status === 404) {
-    console.log("⚠️  Tabela 'transactions' não encontrada");
-    return false;
-  }
-  console.log(`ℹ️  Resposta: ${res.status} - ${JSON.stringify(body)}`);
+  console.log("⚠️  Tabela 'transactions' não encontrada");
   return false;
 }
 
 async function main() {
   const connected = await testConnection();
   if (!connected) {
-    console.log("\n💡 Verifique se o SUPABASE_URL e SUPABASE_ANON_KEY no .env.local estão corretos.");
+    console.log("\n💡 Verifique as variáveis no .env.local.");
     process.exit(1);
   }
 
@@ -67,13 +65,14 @@ async function main() {
   if (!exists) {
     const schemaPath = join(__dirname, "..", "supabase", "schema.sql");
     const sql = readFileSync(schemaPath, "utf-8");
+    const dashboardUrl = `https://supabase.com/dashboard/project/${projectRef}/sql/new`;
 
-    console.log("\n📋 Para criar a tabela, execute o SQL abaixo no Supabase Dashboard:");
-    console.log("   → https://supabase.com/dashboard/project/vpxfbnndzxlfnlflwnlr/sql/new\n");
+    console.log("\n📋 Execute o SQL abaixo no Supabase Dashboard:");
+    console.log(`   → ${dashboardUrl}\n`);
     console.log("─".repeat(60));
     console.log(sql);
     console.log("─".repeat(60));
-    console.log("\n💡 Após executar o SQL, rode novamente: npm run dev");
+    console.log("\n💡 Após executar o SQL, rode: npm run dev");
   } else {
     console.log("\n🚀 Banco configurado! Execute: npm run dev");
   }
