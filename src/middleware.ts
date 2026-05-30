@@ -2,7 +2,6 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function middleware(request: NextRequest) {
-  // Env vars ausentes → deixa passar (segurança tratada em cada página)
   if (
     !process.env.NEXT_PUBLIC_SUPABASE_URL ||
     !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -20,7 +19,9 @@ export async function middleware(request: NextRequest) {
         getAll() {
           return request.cookies.getAll();
         },
-        setAll(cookiesToSet) {
+        // Em @supabase/ssr >=0.6, setAll recebe (cookies, headers).
+        // Os headers incluem Cache-Control para impedir CDN de cachear respostas de auth.
+        setAll(cookiesToSet, headers) {
           cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value)
           );
@@ -28,13 +29,17 @@ export async function middleware(request: NextRequest) {
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options)
           );
+          if (headers) {
+            Object.entries(headers).forEach(([key, value]) =>
+              supabaseResponse.headers.set(key, value)
+            );
+          }
         },
       },
     }
   );
 
-  // getUser valida o JWT com o servidor Supabase — nunca use getSession() aqui
-  // pois getSession() não valida o token e pode ser falsificado pelo cliente.
+  // getUser() valida o JWT no servidor — nunca use getSession() aqui.
   let user = null;
   try {
     const { data } = await supabase.auth.getUser();

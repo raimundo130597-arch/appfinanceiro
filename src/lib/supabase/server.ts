@@ -1,8 +1,10 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
-export async function createClient() {
-  const cookieStore = await cookies();
+// Em Next.js 14, cookies() é síncrono — sem async/await.
+// O padrão async (await cookies()) é do Next.js 15.
+export function createClient() {
+  const cookieStore = cookies();
 
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -18,7 +20,8 @@ export async function createClient() {
               cookieStore.set(name, value, options)
             );
           } catch {
-            // Server Component — cookies são definidos pelo middleware
+            // Server Component: cookies são read-only aqui.
+            // O middleware é responsável por persistir a sessão renovada.
           }
         },
       },
