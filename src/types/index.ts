@@ -28,7 +28,7 @@ export interface Filters {
   type: TransactionType | "all";
 }
 
-export const EXPENSE_CATEGORIES = [
+export const DEFAULT_EXPENSE_CATEGORIES = [
   "Alimentação",
   "Transporte",
   "Moradia",
@@ -37,14 +37,17 @@ export const EXPENSE_CATEGORIES = [
   "Lazer",
   "Roupas",
   "Outros",
-] as const;
+];
 
-export const INCOME_CATEGORIES = [
+export const DEFAULT_INCOME_CATEGORIES = [
   "Salário",
   "Freelance",
   "Investimentos",
   "Outros",
-] as const;
+];
 
-export type ExpenseCategory = (typeof EXPENSE_CATEGORIES)[number];
-export type IncomeCategory = (typeof INCOME_CATEGORIES)[number];
+export const EXPENSE_CATEGORIES = DEFAULT_EXPENSE_CATEGORIES;
+export const INCOME_CATEGORIES = DEFAULT_INCOME_CATEGORIES;
+
+export type ExpenseCategory = string;
+export type IncomeCategory = string;
